@@ -106,11 +106,27 @@ class MacroAccessibilityService : AccessibilityService() {
     /**
      * Inject tap pakai shell command lewat Shizuku.
      * Butuh Shizuku sudah running & permission sudah di-grant sebelum ini dipanggil.
+     *
+     * CATATAN: Shizuku.newProcess() versi terbaru statusnya private (tidak bisa
+     * dipanggil langsung), jadi dipanggil lewat reflection.
      */
     private fun performClickViaShizuku(x: Float, y: Float) {
         try {
             val cmd = "input tap ${x.toInt()} ${y.toInt()}"
-            val process = Shizuku.newProcess(arrayOf("sh", "-c", cmd), null, null)
+            val method = Shizuku::class.java.getDeclaredMethod(
+                "newProcess",
+                Array<String>::class.java,
+                Array<String>::class.java,
+                String::class.java
+            )
+            method.isAccessible = true
+            val process = method.invoke(
+                null,
+                arrayOf("sh", "-c", cmd),
+                null,
+                null
+            ) as Process
+
             val outputStream = DataOutputStream(process.outputStream)
             outputStream.flush()
             outputStream.close()

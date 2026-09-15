@@ -7,7 +7,7 @@
         android:allowBackup="true"
         android:icon="@android:drawable/ic_menu_manage"
         android:label="MB5 Auto Click"
-        android:theme="@android:style/Theme.Material.Light">
+        android:theme="@style/Theme.AppCompat.Light">
 
         <activity
             android:name=".MainActivity"

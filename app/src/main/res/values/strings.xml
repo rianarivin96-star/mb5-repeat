@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MB5 Auto Click</string>
+    <string name="accessibility_service_description">Mendeteksi tombol MB5 mouse untuk melakukan auto-click repeat</string>
+</resources>

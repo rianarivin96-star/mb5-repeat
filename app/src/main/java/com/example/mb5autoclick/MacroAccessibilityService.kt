@@ -1,13 +1,17 @@
 package com.example.mb5autoclick
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
-import android.widget.Toast
 import rikka.shizuku.Shizuku
 import java.io.DataOutputStream
 
@@ -29,8 +33,8 @@ class MacroAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "MB5Service"
 
-        // Ganti ini kalau ternyata keycode MB5 di HP kamu beda
-        private const val TARGET_KEYCODE = KeyEvent.KEYCODE_FORWARD
+        // MB4 terbukti kirim KEYCODE_BACK (dari tes Chrome & Key Mapper)
+        private const val TARGET_KEYCODE = KeyEvent.KEYCODE_BACK
 
         // Interval antar klik repeat (ms). Makin kecil = makin cepat.
         private const val CLICK_INTERVAL_MS = 80L
@@ -51,6 +55,20 @@ class MacroAccessibilityService : AccessibilityService() {
     }
 
     /**
+     * Beberapa Android/OEM (MIUI, dll) butuh flag FLAG_REQUEST_FILTER_KEY_EVENTS
+     * di-set MANUAL lewat kode juga, nggak cukup cuma dari file XML config.
+     * Ini fallback biar lebih pasti kepasang.
+     */
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        val info = serviceInfo
+        info.flags = info.flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
+        serviceInfo = info
+        Log.d(TAG, "onServiceConnected — flag key filtering di-set manual")
+        vibrate() // getar sekali pas service aktif, biar tau service-nya beneran connect
+    }
+
+    /**
      * Menangkap event tombol (termasuk MB4/MB5 yang biasanya masuk sebagai KeyEvent).
      * WAJIB set flag FLAG_REQUEST_FILTER_KEY_EVENTS di accessibility_service_config.xml
      * supaya method ini dipanggil.
@@ -58,15 +76,9 @@ class MacroAccessibilityService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         Log.d(TAG, "KeyEvent diterima: keyCode=${event.keyCode} action=${event.action}")
 
-        // POPUP LANGSUNG DI LAYAR — biar gampang ngecek keycode TANPA app logcat
+        // GETAR HP — lebih pasti kerasa dibanding Toast (Toast bisa ke-block sistem)
         if (event.action == KeyEvent.ACTION_DOWN) {
-            handler.post {
-                Toast.makeText(
-                    applicationContext,
-                    "Keycode: ${event.keyCode}",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+            vibrate()
         }
 
         if (event.keyCode == TARGET_KEYCODE) {
@@ -99,6 +111,25 @@ class MacroAccessibilityService : AccessibilityService() {
     fun updateCursorPosition(x: Float, y: Float) {
         lastX = x
         lastY = y
+    }
+
+    private fun vibrate() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = getSystemService(VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                vibratorManager.defaultVibrator.vibrate(
+                    VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
+                vibrator.vibrate(
+                    VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE)
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal vibrate", e)
+        }
     }
 
     private fun startRepeatClick() {

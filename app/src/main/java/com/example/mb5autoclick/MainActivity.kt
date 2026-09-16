@@ -11,6 +11,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import rikka.shizuku.Shizuku
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,6 +61,13 @@ class MainActivity : AppCompatActivity() {
             refreshLog()
         }
         layout.addView(btnClearLog)
+
+        val btnRawTest = Button(this)
+        btnRawTest.text = "3. TEST RAW (getevent 8 detik) — tekan mouse pas jalan"
+        btnRawTest.setOnClickListener {
+            testRawInput()
+        }
+        layout.addView(btnRawTest)
 
         val infoText = TextView(this)
         infoText.text = "\nLangkah:\n" +
@@ -114,5 +124,57 @@ class MainActivity : AppCompatActivity() {
             return
         }
         Shizuku.requestPermission(REQUEST_CODE_SHIZUKU)
+    }
+
+    /**
+     * Jalanin "getevent -l" via Shizuku selama 8 detik, nangkep sinyal mentah
+     * langsung dari kernel input device — ini BYPASS accessibility service
+     * sama sekali, jadi bisa mastiin apakah MB4/MB5 beneran ngirim sinyal
+     * ke Android atau nggak, dari sumbernya langsung.
+     */
+    private fun testRawInput() {
+        MacroAccessibilityService.addLog("=== MULAI TEST RAW getevent (8 detik) ===")
+        refreshLog()
+
+        thread {
+            try {
+                if (Shizuku.checkSelfPermission() != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    MacroAccessibilityService.addLog("ERROR: Izin Shizuku belum ada, tap tombol 1 dulu")
+                    return@thread
+                }
+
+                val cmd = "timeout 8 getevent -l"
+                val method = Shizuku::class.java.getDeclaredMethod(
+                    "newProcess",
+                    Array<String>::class.java,
+                    Array<String>::class.java,
+                    String::class.java
+                )
+                method.isAccessible = true
+                val process = method.invoke(
+                    null,
+                    arrayOf("sh", "-c", cmd),
+                    null,
+                    null
+                ) as Process
+
+                val reader = BufferedReader(InputStreamReader(process.inputStream))
+                var line: String?
+                var lineCount = 0
+                while (reader.readLine().also { line = it } != null) {
+                    lineCount++
+                    val l = line ?: continue
+                    // Cuma tampilin baris yang relevan (KEY event), biar nggak
+                    // kebanjiran ratusan baris gerakan mouse (EV_REL/EV_ABS)
+                    if (l.contains("KEY") || l.contains("BTN")) {
+                        MacroAccessibilityService.addLog("RAW: $l")
+                    }
+                }
+                process.waitFor()
+                MacroAccessibilityService.addLog("=== TEST SELESAI ($lineCount baris total dibaca) ===")
+            } catch (e: Exception) {
+                MacroAccessibilityService.addLog("ERROR getevent: ${e.message}")
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityEvent
+import android.widget.Toast
 import rikka.shizuku.Shizuku
 import java.io.DataOutputStream
 
@@ -56,6 +57,17 @@ class MacroAccessibilityService : AccessibilityService() {
      */
     override fun onKeyEvent(event: KeyEvent): Boolean {
         Log.d(TAG, "KeyEvent diterima: keyCode=${event.keyCode} action=${event.action}")
+
+        // POPUP LANGSUNG DI LAYAR — biar gampang ngecek keycode TANPA app logcat
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            handler.post {
+                Toast.makeText(
+                    applicationContext,
+                    "Keycode: ${event.keyCode}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
 
         if (event.keyCode == TARGET_KEYCODE) {
             when (event.action) {

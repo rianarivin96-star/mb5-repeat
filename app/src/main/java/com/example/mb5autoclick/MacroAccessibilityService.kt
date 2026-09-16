@@ -38,6 +38,17 @@ class MacroAccessibilityService : AccessibilityService() {
 
         // Interval antar klik repeat (ms). Makin kecil = makin cepat.
         private const val CLICK_INTERVAL_MS = 80L
+
+        // LOG YANG BISA DIBACA LANGSUNG DARI MainActivity — bukti konkret,
+        // nggak perlu app logcat/toast/vibrate lagi.
+        val eventLog = mutableListOf<String>()
+
+        @Synchronized
+        fun addLog(message: String) {
+            val time = java.text.SimpleDateFormat("HH:mm:ss.SSS").format(java.util.Date())
+            eventLog.add(0, "[$time] $message")
+            if (eventLog.size > 50) eventLog.removeAt(eventLog.size - 1)
+        }
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -65,6 +76,7 @@ class MacroAccessibilityService : AccessibilityService() {
         info.flags = info.flags or AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
         serviceInfo = info
         Log.d(TAG, "onServiceConnected — flag key filtering di-set manual")
+        addLog("SERVICE CONNECTED — service berhasil nyambung")
         vibrate() // getar sekali pas service aktif, biar tau service-nya beneran connect
     }
 
@@ -75,6 +87,7 @@ class MacroAccessibilityService : AccessibilityService() {
      */
     override fun onKeyEvent(event: KeyEvent): Boolean {
         Log.d(TAG, "KeyEvent diterima: keyCode=${event.keyCode} action=${event.action}")
+        addLog("KeyEvent: keyCode=${event.keyCode} action=${event.action}")
 
         // GETAR HP — lebih pasti kerasa dibanding Toast (Toast bisa ke-block sistem)
         if (event.action == KeyEvent.ACTION_DOWN) {
